@@ -1,9 +1,12 @@
-function [BestMatches SSD]= FindMatches(Template,SampleImage,WindowSize,ValidMask)
+function [BestMatches SSD]= FindMatches(Template,SampleImage,WindowSize,Currentfill)
 % set threshold and sigma
 ErrThreshold = 0.1;
 Sigma = WindowSize/6.4;
 % build GaussMask for later use
 GaussMask = fspecial('gaussian',WindowSize,Sigma);
+% build the ValidMask, 1 where template is filled, 0 otherwise.
+[row, col] = find(Template>0);
+ValidMask(row,col) = Currentfill(row,col);
 
 % vectorized calculation to computer the best match
 % vectorize the sample image

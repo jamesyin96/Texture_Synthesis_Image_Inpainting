@@ -1,0 +1,23 @@
+function PixelList = GetUnfilledNeighbors(Currentfill, WindowSize)
+% first do the dilation of current filled image
+dimage = imdilate(Currentfill,strel('square',3));
+% take out the current filled image, we can get the neighbors surrounding
+% the currently filled pixels
+Neighbors = dimage - Currentfill;
+[row,col] = find(Neighbors==1);
+
+T = length(row);
+result = zeros(2,T);
+
+%randomly permute candidate pixels
+randindex = randperm(T); 
+result(1,:) = row(randindex); 
+result(2,:) = col(randindex); 
+
+%sort by number of neighbors     
+filledneighbornum = colfilt(Currentfill, [WindowSize WindowSize], 'sliding', @sum); 
+numFilledNeighbors = filledneighbornum( sub2ind(size(filled), pixelRo, pixelCols) ); 
+[sorted, sortIndex] = sort(numFilledNeighbors, 1, 'descend');
+
+pixelRows = pixelRows(sortIndex); 
+pixelCols = pixelCols(sortIndex); 

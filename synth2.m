@@ -1,0 +1,165 @@
+%  Non-parametric Texture Synthesis using Efros & Leung's algorithm  
+
+% Inputs:
+% 'filename': the image file containing the sample image (the texture to grow)
+% 'winsize': the edge length of the window to match at each iteration (the window is (winsize x winsize) )
+% (newRows, newCols): the size of the output image
+
+% Outputs:
+% 'Image': the output image (the synthesized texture)
+% 'time': the amount of time it took to perform the synthesis
+
+function [Image, time] = synth2(filename, winsize, newRows, newCols)
+tic
+MaxErrThreshold = 0.3;
+
+rawSample = im2double(imread(filename)); 
+
+sample =  rawSample;  
+
+[rows, cols] = size(sample); 
+windowlessSize = [(rows - winsize + 1) (cols - winsize + 1)];
+
+halfWindow = (winsize - 1) / 2;
+
+npixels = newRows * newCols; 
+Image = zeros(newRows, newCols);
+
+patches = im2col(sample(:, :), [winsize winsize], 'sliding');
+
+
+%initialize new texture with a random 3x3 patch from the sample
+randRow = ceil(rand() * (rows - 2)); 
+randCol = ceil(rand() * (cols - 2));
+
+seedSize = 3; 
+seedRows = ceil(newRows/2):ceil(newRows/2)+seedSize-1;
+seedCols = ceil(newCols/2):ceil(newCols/2)+seedSize-1;
+Image(seedRows, seedCols) = sample(randRow:randRow+seedSize-1, randCol:randCol+seedSize-1);
+
+nfilled = seedSize * seedSize; 
+filled = repmat(false, [newRows newCols]); 
+filled(seedRows, seedCols) = repmat(true, [3 3]); 
+
+gaussMask = fspecial('gaussian',winsize, winsize/6.4);
+
+nskipped = 0; 
+
+while nfilled < npixels    
+    progress = false;
+    
+    [pixelRows, pixelCols] = GetUnfilledNeighbors(filled, winsize);
+     
+     for i = 1:length(pixelRows)
+        pixelRow = pixelRows(i);
+        pixelCol = pixelCols(i);
+        
+        rowRange = pixelRow-halfWindow:pixelRow+halfWindow;
+        colRange =  pixelCol - halfWindow:pixelCol + halfWindow;
+
+        deadRows = rowRange < 1 | rowRange > newRows;
+        deadCols = colRange < 1 | colRange > newCols; 
+
+
+        if sum(deadRows) + sum(deadCols) > 0 
+            safeRows = rowRange(~deadRows); 
+            safeCols = colRange(~deadCols); 
+
+            template = zeros(winsize, winsize); 
+            template(~deadRows, ~deadCols) = Image(safeRows, safeCols); 
+
+            validMask = repmat(false, [winsize winsize]); 
+            validMask(~deadRows, ~deadCols) = filled(safeRows, safeCols); 
+        else
+            template = Image(rowRange, colRange);
+            validMask = filled(rowRange, colRange); 
+
+        end
+
+       [bestMatches, SSD] = FindMatches(template, validMask, gaussMask, patches);
+
+
+        matchIdx = RandomPick(bestMatches);
+        matchError = SSD(matchIdx); 
+
+         if matchError < MaxErrThreshold 
+             [matchRow, matchCol] = ind2sub(windowlessSize, matchIdx); 
+             
+             %match coords are at corner of window and need to be offset
+             matchRow = matchRow + halfWindow;
+             matchCol = matchCol + halfWindow;  
+
+             Image(pixelRow, pixelCol) = sample(matchRow, matchCol);
+
+             filled(pixelRow, pixelCol) = true;   
+             nfilled = nfilled + 1; 
+             progress = true;
+         else
+             nskipped = nskipped + 1; 
+         end
+    end
+    
+    
+    disp(sprintf('Pixels filled: %d / %d', nfilled, npixels)); 
+    figure; 
+    subplot(2,1,1); 
+    imshow(filled); 
+    subplot(2,1,2); 
+    imshow(Image); 
+    if ~progress 
+        
+        MaxErrThreshold = MaxErrThreshold * 1.1;
+        disp(sprintf('Incrementing error tolerance to %d', MaxErrThreshold)); 
+    end
+end
+
+ toc
+time = toc; 
+
+%% Get pixels at edge of synthesized texture
+ function [pixelRows, pixelCols] = GetUnfilledNeighbors(filled, winsize) 
+    border = bwmorph(filled,'dilate')-filled;
+    
+    [pixelRows, pixelCols] = find(border);
+    len = length(pixelRows); 
+     
+     %randomly permute candidate pixels
+     randIdx = randperm(len); 
+     pixelRows = pixelRows(randIdx); 
+     pixelCols = pixelCols(randIdx); 
+
+     %sort by number of neighbors     
+     filledSums = colfilt(filled, [winsize winsize], 'sliding', @sum); 
+     numFilledNeighbors = filledSums( sub2ind(size(filled), pixelRows, pixelCols) ); 
+     [sorted, sortIndex] = sort(numFilledNeighbors, 1, 'descend');
+     
+     pixelRows = pixelRows(sortIndex); 
+     pixelCols = pixelCols(sortIndex); 
+
+     
+%% Pick a random pixel from valid patches
+function idx = RandomPick(matches)
+    indices = find(matches);
+    idx = indices(ceil(rand() * length(indices))); 
+ 
+     
+%% Find candidate patches that match template
+function [pixelList, SSD] = FindMatches (template, validMask, gaussMask, patches)
+ErrThreshold = 0.1; 
+
+[pixels_per_patch, npatches] = size(patches); 
+
+totalWeight = sum(sum(gaussMask(validMask)));
+
+mask = (gaussMask .* validMask) / totalWeight;
+mask_vec = mask(:)'; 
+
+red = reshape(template(:, :), [pixels_per_patch 1]);
+
+red_templates = repmat(red, [1 npatches]); 
+
+red_dist =  mask_vec * (red_templates - patches).^2;  
+
+SSD = red_dist; 
+
+pixelList = SSD <= min(SSD) * (1+ErrThreshold);  
