@@ -1,17 +1,17 @@
 % this function is the texture function, the input is the sample image, the
 % windowsize in scanning the image, and the size of our result image. In
-% this function, we only consider the condition that window height = window
-% width, also, result image height = result image width
+% this function, we only consider the condition that both window and final 
 function image = texture_synthesis(filename, WindowSize, newImageSize)
 testIm = imread(filename);
 
 % must convert pixel values into 0~1 format
 sample = im2double(testIm);
-% get the size of sample image and vectorized sample image
+% get the size of sample image
 samplesize = size(sample);
 samplerow = samplesize(1);
 samplecol = samplesize(2);
-samplevector = im2col(sample,[WindowSize,WindowSize],'sliding');
+
+windowlessSize = [(samplerow - WindowSize + 1) (samplecol - WindowSize + 1)];
 % initial setting according to the requirements
 ErrThreshold = 0.1;
 MaxErrThreshold = 0.3;
@@ -41,7 +41,7 @@ Currentfill = zeros(newImageRow,newImageCol);
 % the center 3x3 area has been filled
 Currentfill(seedrow,seedcol)=[1 1 1;1 1 1;1 1 1];
 half = (WindowSize - 1)/2;
-templocation = [(samplerow - WindowSize + 1) (samplecol - WindowSize + 1)];
+
 while fillCounter < TotalPixels
     % set the progress flag to 0 at the start of each outer loop
     progress = 0;
@@ -51,13 +51,13 @@ while fillCounter < TotalPixels
     for i=1:length(Pixelr)
         Pixel(1) = Pixelr(i);
         Pixel(2) = Pixelc(i);
-        [Template ValidMask]= GetNeighborhoodWindow(newImage, Pixel, WindowSize,Currentfill);
-        [BestMatches SSD]= FindMatches(Template,samplevector,WindowSize,ValidMask);
+        [Template ValidMask]= GetNeighborhoodWindow(newImage, Pixel, WindowSize,newImageRow,Currentfill);
+        [BestMatches SSD]= FindMatches(Template,sample,WindowSize,ValidMask);
         BestMatch = RandomPick(BestMatches);
         BestMatch_Err = SSD(BestMatch);
         
         if BestMatch_Err < MaxErrThreshold
-            [BestMatchR, BestMatchC] = ind2sub(templocation, BestMatch);
+            [BestMatchR, BestMatchC] = ind2sub(windowlessSize, BestMatch);
             
             % we get the upper-left corner location of the best match
             % window, so we should retrive the center of that window

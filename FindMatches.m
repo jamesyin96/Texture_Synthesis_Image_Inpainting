@@ -1,4 +1,4 @@
-function [BestMatches SSD]= FindMatches(Template,SampleImage,WindowSize,ValidMask)
+function [BestMatches SSD]= FindMatches(Template,samplevector,WindowSize,ValidMask)
 % set threshold and sigma
 ErrThreshold = 0.1;
 Sigma = WindowSize/6.4;
@@ -6,8 +6,7 @@ Sigma = WindowSize/6.4;
 GaussMask = fspecial('gaussian',WindowSize,Sigma);
 
 % vectorized calculation to computer the best match
-% vectorize the sample image
-samplevector = im2col(SampleImage,[WindowSize,WindowSize],'sliding');
+
 % calculating total weight
 TotWeight = sum(sum(GaussMask .* ValidMask));
 % get number of rows and columns of sample vector
@@ -24,8 +23,8 @@ dist = (templatevector - samplevector).^2;
 temp = (GaussMask .* ValidMask);
 temp2 = reshape(temp,1,pixelsperwindow);
 SSD = (temp2 * dist)/TotWeight;
-
-result = SSD <= (min(SSD) * (1 + ErrThreshold));
+SSD2 = SSD(SSD>0);
+result = SSD2 <= (min(SSD2) * (1 + ErrThreshold));
 
 BestMatches = result;
 end

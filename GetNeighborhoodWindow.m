@@ -1,4 +1,4 @@
-function [Template validmask] = GetNeighborhoodWindow(newImage, Pixel, WindowSize,newImageR,Currentfill)
+function [Template validmask] = GetNeighborhoodWindow(newImage, Pixel, WindowSize,Currentfill)
         % get the row number and column number of that pixel
         pixelRow = Pixel(1);
         pixelCol = Pixel(2);
@@ -7,9 +7,12 @@ function [Template validmask] = GetNeighborhoodWindow(newImage, Pixel, WindowSiz
         winrow = (pixelRow - half):(pixelRow + half);
         wincol = (pixelCol - half):(pixelCol + half);
         
+        Imsize = size(newImage);
+        newImageR = Imsize(1);
+        newImageC = Imsize(2);
         % to decide whether it has reached the edge of the image
         edgeR = (winrow < 1) | (winrow > newImageR);
-        edgeC = (wincol < 1) | (wincol > newImageR); 
+        edgeC = (wincol < 1) | (wincol > newImageC); 
         
         % if any element in edgeR is 1, it indicates that the
         % neighborwindow has reached the edge of the image

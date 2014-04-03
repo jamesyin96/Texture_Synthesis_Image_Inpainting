@@ -1,45 +1,49 @@
-% this function is the texture function, the input is the sample image, the
-% windowsize in scanning the image, and the size of our result image. In
-% this function, we only consider the condition that window height = window
-% width, also, result image height = result image width
-function image = texture_synthesis(filename, WindowSize, newImageSize)
-testIm = imread(filename);
+% this function is the image impainting function.
+% inputs are: image with gap to be filled, window size
+function image = image_impainting2(Imageinput, WindowSize)
+
 
 % must convert pixel values into 0~1 format
-sample = im2double(testIm);
-% get the size of sample image and vectorized sample image
+newImage = Imageinput;
+% get the size of sample image
+Imsize = size(newImage);
+newImageRow = Imsize(1);
+newImageCol = Imsize(2);
+
+% we make the sample of input image to be the image itself.
+sample = newImage;
+% get the size of sample image
 samplesize = size(sample);
 samplerow = samplesize(1);
 samplecol = samplesize(2);
-samplevector = im2col(sample,[WindowSize,WindowSize],'sliding');
+% vectorize the sample image
+originalsamplevector = im2col(sample,[WindowSize,WindowSize],'sliding');
+K = length(originalsamplevector);
+% incase of very big sample vector, we set a up limit=5000, such that when
+% sample vactor is bigger than 5000, we randomly pick 5000 elements from
+% the original sample vector and form the new sample vector.
+if K < 5000
+    samplevector = originalsamplevector;
+else
+    samplevector = originalsamplevector(:,randsample(K,5000));
+end
+
 % initial setting according to the requirements
 ErrThreshold = 0.1;
 MaxErrThreshold = 0.3;
 Sigma = WindowSize/6.4;
 
-% initial output images, size 200x200
-newImageRow = newImageSize;
-newImageCol = newImageSize;
 TotalPixels = newImageRow * newImageCol; 
-newImage = zeros(newImageRow, newImageCol);
 
-% get a seed: 3x3 random pixels from sample
-seedwidth = 3;
-seedrandomR = floor(rand()*(samplerow-2)+2);
-seedrandomC = floor(rand()*(samplecol-2)+2);
-% get the center of seed in newImage
-seedrow = (floor(newImageRow/2)-1):(floor(newImageRow/2)+1);
-seedcol = (floor(newImageCol/2)-1):(floor(newImageCol/2)+1);
-% put the seed into the newImage
-newImage(seedrow,seedcol) = sample(seedrandomR-1:seedrandomR+1,seedrandomC-1:seedrandomC+1);
+% we need to find which part of the input image needs to be filled.
+% We should build a filling state matrix to the filling state of the image.
+Currentfill = ones(newImageRow,newImageCol);
+temp = (newImage==0);
+Currentfill = Currentfill - temp;
 
 % to conter how many pixels have been filled, initial value = 9;
-fillCounter = 9;
-% We should build a filling state matrix to the filling state of the image.
-% The initial state should be an empty matrix.
-Currentfill = zeros(newImageRow,newImageCol);
-% the center 3x3 area has been filled
-Currentfill(seedrow,seedcol)=[1 1 1;1 1 1;1 1 1];
+fillCounter = sum(sum(Currentfill));
+
 half = (WindowSize - 1)/2;
 templocation = [(samplerow - WindowSize + 1) (samplecol - WindowSize + 1)];
 while fillCounter < TotalPixels
@@ -73,13 +77,13 @@ while fillCounter < TotalPixels
             fillCounter = fillCounter + 1;
         end
     end
+    % show the processing progress
+    sprintf('Pixels filling process: %d', fillCounter);
     
     if (progress==0)
         MaxErrThreshold = MaxErrThreshold * 1.1;
     end
 end
-% show the final result of texture synthesis
+
 figure();
 imshow(newImage);
-end
-

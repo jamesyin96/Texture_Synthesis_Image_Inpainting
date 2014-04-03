@@ -11,7 +11,8 @@ result = zeros(2,T);
 
 %randomly permute a list from 1 to T, which is the index permutation, we
 %can apply the index permutation into the row and col permutation.
-randindex = randperm(T); 
+randindex = randperm(T);
+%randindex = T;
 temprow = row(randindex); 
 tempcol = col(randindex); 
 
